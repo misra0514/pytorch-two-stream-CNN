@@ -5,10 +5,11 @@ import numpy as np
 import torch
 import torchvision
 import matplotlib.pyplot as plt
-from Spatiotemporal_model import *
-from resnet import *
-from densenet import *
-from vgg import *
+# 以下几个数据包找不到
+# from Spatiotemporal_model import *
+# from resnet import *
+# from densenet import *
+# from vgg import *
 
 #HyperParameters
 epoch_num = 100
@@ -108,6 +109,12 @@ def test(net_S, net_T):
         imshow(torchvision.utils.make_grid(img_T.cpu(), nrow=5))
         #dump_tensors()
     print('Test Finished')
+
+
+# 操作的入口地址 
+# 参数列表 : -模式 (选择train/test)
+#           -网络名称
+#           -预训练 (如果已经pretraind, 则选择True)
 
 def main(mode, net_name, pretrained):
     #Net Assign

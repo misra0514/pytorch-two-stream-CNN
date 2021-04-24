@@ -2,6 +2,8 @@ import numpy as np
 import time
 from visdom import Visdom
 
+# 看起来是用于输出损失等等信息的函数
+# visdom 是一个用于绘图的库函数（类matplotlib），但是会放在服务器上
 class line(object):
     def __init__(self, title, port=8080):
         self.vis = Visdom(port=port)
@@ -21,6 +23,7 @@ class line(object):
         for _ in range(len(args)):
             axis += (x+1,)
 
+        # vis.line : 绘制曲线图
         self.vis.line(
             X=np.array([axis]),
             Y=np.array([args]),
@@ -32,7 +35,7 @@ class line(object):
 
 if __name__ == '__main__':
     line = line('loss', port=8097)
-    line.register_line('loss', 'iter', 'loss')
+    line.register_line('loss', 'iter', 'loss') # 初始化
 
     for x in range(5):
         line.update_line('loss', x, 10, 20, 30)

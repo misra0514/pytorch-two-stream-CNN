@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # -*- conding: utf-8 -*-
 
+''' 
+关于本文件： 感觉是同样是train + test都可以使用的
+    
+'''
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -22,10 +28,10 @@ from net import SpatialNet, TemporalNet
 import visualize
 
 # args
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser() # 创建一个解析对象
 parser.add_argument('--test', dest='test', action='store_true')
 parser.set_defaults(test=False)
-args = parser.parse_args()
+args = parser.parse_args() # 进行解析
 
 # path
 pretrained = 'data/pretrained'
@@ -41,10 +47,11 @@ momentum = 0.9
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # pre-processing
+# 按照函数执行顺序，在做完了基础的解析器设置、路径和节点设置之后就会进入这里。这里注意需要在preprocess里面填入路径
 Preprocess()
 
-# 신경망 구성
-# # 논문의 신경망
+# 신경망 구성 - 神经网络配置
+# # 논문의 신경망 - 论文 神经网络配置
 #spatialnet = SpatialNet().to(device)
 #temporalnet = TemporalNet().to(device)
 
@@ -56,7 +63,7 @@ print(spatialnet)
 print(temporalnet)
 
 
-# 신경망 파라매터 로드
+# 신경망 파라매터 로드 - 加载神经网络参数
 if os.path.isfile(pretrained+params_spatial):
     spatialnet.load_state_dict(torch.load(pretrained+params_spatial))
     temporalnet.load_state_dict(torch.load(pretrained+params_temporal))
@@ -70,7 +77,7 @@ optim_opt = optim.SGD(temporalnet.parameters(), lr=lr, momentum=momentum)
 print(optim_rgb)
 
 
-# 데이터 전처리 정의
+# 데이터 전처리 정의 - 定义数据预处理
 transform = transforms.Compose([
          transforms.Resize(255),
          transforms.RandomCrop(224),
@@ -79,7 +86,7 @@ transform = transforms.Compose([
          ])
 
 
-# 데이터 로더
+# 데이터 로더 - 数据加载器
 dataset = {'{}/{}'.format(x, y) : datasets.ImageFolder(root='data/{}/{}/'.format(x, y),
                                                        transform=transform)
                                                        for x in ['train','test','val']
@@ -235,4 +242,5 @@ def main():
         train()
 
 if __name__ == '__main__':
+
     main()

@@ -9,16 +9,16 @@ class Preprocess():
     def __init__(self, ratio=.7):
         self.ratio = ratio
         
-        labels = sorted(os.listdir(os.path.join(os.getcwd(), 'data/hmdb51_org')))
+        labels = sorted(os.listdir(os.path.join(os.getcwd(), 'data/hmdb51_org'))) # 加载标签
 
         video_list = []
         for label in labels:
             video_list.append([avi for avi in glob.iglob('data/hmdb51_org/{}/*.avi'.format(label), recursive=True)])
 
-        # 레이블 인덱싱
+        # 레이블 인덱싱--标签索引
         label_index = {label : np.array(i) for i, label in enumerate(labels)}
             
-        # 데이터 전처리 (video -> image)
+        # 데이터 전처리--数据预处理 (video -> image)
         if not os.path.exists('data/train'):
             for label in labels:
                 os.makedirs(os.path.join(os.getcwd(), 'data/train/image', label), exist_ok=True)
@@ -48,10 +48,13 @@ class Preprocess():
     def video2frame(self, video, frame_save_path,optical_save_path, count=0):
         '''
             1개의 동영상 파일에서 약 16 프레임씩 이미지(.jpg)로 저장
+            1从一个视频中保存约16帧作为图像
     
             args
                 video : 비디오 파일 이름
+                vidio : 视频文件名
                 save_path : 저장 경로
+                save_path : 存放路径
     
         '''
         folder_name, video_name= video.split('/')[-2], video.split('/')[-1]
@@ -62,8 +65,8 @@ class Preprocess():
         _, frame = capture.read()
         prvs = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
         
-        hsv = np.zeros_like(frame) # Farneback 알고리즘 이용하기 위한 초기화
-        hsv[..., 1] = 255 # 초록색 바탕 설정
+        hsv = np.zeros_like(frame) # Farneback 알고리즘 이용하기 위한 초기화--初始化使用算法
+        hsv[..., 1] = 255 # 초록색 바탕 설정--绿色背景设置
 
         while True:
             ret, image = capture.read()
