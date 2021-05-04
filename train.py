@@ -3,6 +3,7 @@
 
 ''' 
 关于本文件： 感觉是同样是train + test都可以使用的
+【注意！！】 使用前记得先  ··· python -m visdom.server ···  启动visdom服务器
     
 '''
 
@@ -39,15 +40,16 @@ params_spatial = '/spatial.pth'
 params_temporal = '/temporal.pth'
 
 # hyper-params
-epochs = 30
-batch_size = 10
-lr = 0.001
+epochs = 15
+batch_size = 4
+lr = 0.002
 momentum = 0.9
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # pre-processing
 # 按照函数执行顺序，在做完了基础的解析器设置、路径和节点设置之后就会进入这里。这里注意需要在preprocess里面填入路径
+# 重复执行的话看来一定会经过这个地方，不管test和train都是。不知道能不能注释掉？
 Preprocess()
 
 # 신경망 구성 - 神经网络配置
@@ -56,6 +58,12 @@ Preprocess()
 #temporalnet = TemporalNet().to(device)
 
 # resnet101
+# TODO : 最后会在这里产生runtime error，可能是误报。
+# 发生异常: RuntimeError       (note: full exception trace is shown but execution is paused at: <module>)
+# CUDA error: out of memory
+#   File "D:\Programing\python\pytorch-two-stream-CNN\train.py", line 61, in <module>
+#     spatialnet = resnet101(num_classes=51).to(device)
+#   File "<string>", line 1, in <module> (Current frame)
 spatialnet = resnet101(num_classes=51).to(device)
 temporalnet = resnet101(num_classes=51).to(device)
 
@@ -103,7 +111,7 @@ loader = {'{}/{}'.format(x, y) : DataLoader(dataset=dataset['{}/{}'.format(x, y)
 # 신경망 학습
 def train():
 
-    # visdom 그래프 플로팅
+    # visdom 그래프 플로팅-图形绘制
     plot_loss = visualize.line('Loss', port=8097)
     plot_loss.register_line('Loss', 'iter', 'loss')
     
@@ -121,7 +129,9 @@ def train():
         correct_rgb = 0
         correct_opt = 0             
         
+        # len(loader['train/image']) = 7305
         for i, ((img, rgb_target), (optical, opt_target)) in enumerate(zip(loader['train/image'], loader['train/optical'])):
+            print("当前训练进度: ", i ,"/" ,len(loader['train/image']) , " 总进度： ", epoch , " / " , epochs)
             img = img.to(device)
             rgb_target = rgb_target.to(device)
 
@@ -131,9 +141,12 @@ def train():
             optim_rgb.zero_grad()
             optim_opt.zero_grad()
 
+            # 这一步也会out of memory。。总之自己的电脑不太行。
             outputs_spatial = spatialnet(img)
             pred_spatial = torch.max(outputs_spatial, 1)[1]
 
+            if hasattr(torch.cuda, 'empty_cache'):
+                torch.cuda.empty_cache()
             outputs_temporal = temporalnet(optical)
             pred_temporal = torch.max(outputs_temporal, 1)[1]
             
@@ -186,7 +199,8 @@ def train():
             print('accuracy of spatial      : {}'.format(100*correct_rgb/((i+1)*batch_size)))
             print('accuracy of temporal     : {}'.format(100*correct_opt/((i+1)*batch_size)))
 
-        # 파라매터 저장
+        # 파라매터 저장- 保存参数
+        # 意味着训练正常结束之后，会形成一个pretrained文件夹
         if not os.path.exists(pretrained):
             os.makedirs(pretrained, exist_ok=True)
         torch.save(spatialnet.state_dict(), pretrained+params_spatial+'_{0:03d}'.format(epoch))
@@ -198,6 +212,7 @@ def train():
 
 def test():
     
+    # 所以，opt指的是光流的optical。【作为twostrea-flow，包括了光流和一个单个页面的cnn记录内容】所以重点关注optical的正确率
     running_loss = 0.0
     correct_rgb = 0
     correct_opt = 0
@@ -234,7 +249,8 @@ def test():
 
 
 
-
+# 看来倒是train还是test需要手动调整...args 使用解析器生成的。
+# args解析器对象有几个属性。使用add_argument 添加了一个test属性，并且现在是false（可修改）。
 def main():
     if args.test:
         test()
