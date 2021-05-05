@@ -31,16 +31,16 @@ import visualize
 # args
 parser = argparse.ArgumentParser() # 创建一个解析对象
 parser.add_argument('--test', dest='test', action='store_true')
-parser.set_defaults(test=False)
+parser.set_defaults(test=True)
 args = parser.parse_args() # 进行解析
 
 # path
-pretrained = 'data/pretrained'
+pretrained = 'pretrained'
 params_spatial = '/spatial.pth'
 params_temporal = '/temporal.pth'
 
 # hyper-params
-epochs = 15
+epochs = 25
 batch_size = 4
 lr = 0.002
 momentum = 0.9
@@ -58,7 +58,6 @@ Preprocess()
 #temporalnet = TemporalNet().to(device)
 
 # resnet101
-# TODO : 最后会在这里产生runtime error，可能是误报。
 # 发生异常: RuntimeError       (note: full exception trace is shown but execution is paused at: <module>)
 # CUDA error: out of memory
 #   File "D:\Programing\python\pytorch-two-stream-CNN\train.py", line 61, in <module>
@@ -129,7 +128,7 @@ def train():
         correct_rgb = 0
         correct_opt = 0             
         
-        # len(loader['train/image']) = 7305
+        # len(loader['train/image']) = 7305，根据batchsize更改
         for i, ((img, rgb_target), (optical, opt_target)) in enumerate(zip(loader['train/image'], loader['train/optical'])):
             print("当前训练进度: ", i ,"/" ,len(loader['train/image']) , " 总进度： ", epoch , " / " , epochs)
             img = img.to(device)
@@ -141,31 +140,33 @@ def train():
             optim_rgb.zero_grad()
             optim_opt.zero_grad()
 
-            # 这一步也会out of memory。。总之自己的电脑不太行。
-            outputs_spatial = spatialnet(img)
-            pred_spatial = torch.max(outputs_spatial, 1)[1]
-
+            # 经常在执行以下内同时提示out of memory。所以这里清除下缓存。同时把空间网络去掉
             if hasattr(torch.cuda, 'empty_cache'):
                 torch.cuda.empty_cache()
+            
+            # outputs_spatial = spatialnet(img)
+            # pred_spatial = torch.max(outputs_spatial, 1)[1]
+
             outputs_temporal = temporalnet(optical)
             pred_temporal = torch.max(outputs_temporal, 1)[1]
             
-            loss_spatial = criterion(outputs_spatial, rgb_target)
+            #loss_spatial = criterion(outputs_spatial, rgb_target)
             loss_temporal = criterion(outputs_temporal, opt_target)
-            loss = loss_spatial + loss_temporal
+            # loss = loss_spatial + loss_temporal
+            loss  =  loss_temporal
 
             loss.backward()
             optim_rgb.step()
             optim_opt.step()
 
             running_loss += loss.item()
-            correct_rgb += sum(rgb_target.cpu().numpy() == pred_spatial.cpu().numpy())
+            # correct_rgb += sum(rgb_target.cpu().numpy() == pred_spatial.cpu().numpy())
             correct_opt += sum(opt_target.cpu().numpy() == pred_temporal.cpu().numpy())
 
 
             if (i+1) % 100 == 0:
                 print('---Spatial---')
-                print('prediction  : {0} \ntarget      : {1}'.format(pred_spatial, rgb_target))
+                #print('prediction  : {0} \ntarget      : {1}'.format(pred_spatial, rgb_target))
                 print('---Temporal--')
                 print('prediction  : {0} \ntarget      : {1}'.format(pred_temporal, opt_target))
                 print('[epoch : {0:3d}, {1:5d}/{2}] loss : {3:3f}'.format(epoch+1, (i+1)*batch_size, train_size, running_loss/((i+1)*batch_size)))
@@ -174,10 +175,11 @@ def train():
         accuracy['train/spatial'].update_line('train/spatial', epoch, running_loss/train_size)
         accuracy['train/temporal'].update_line('train/temporal', epoch, running_loss/train_size)
                 
-        # Validation
+        # Validation 每2个epoch做一次验证
         if (epoch+1) % 2 == 0:
             correct_rgb = 0
             correct_opt = 0
+            # 验证的时候，会计算一组val里面正确的数量。 eg，在18轮的时候，correct * size / (总数 * batchsize) = 4
             for i, ((img, rgb_target), (optical, opt_target)) in enumerate(zip(loader['val/image'], loader['val/optical'])):
                 img = img.to(device)
                 rgb_target = rgb_target.to(device)
@@ -185,22 +187,23 @@ def train():
                 optical = optical.to(device)
                 opt_target = opt_target.to(device)
 
-                outputs_spatial = spatialnet(img)
-                pred_spatial = torch.max(outputs_spatial, 1)[1]
+                #outputs_spatial = spatialnet(img)
+                #pred_spatial = torch.max(outputs_spatial, 1)[1]
 
                 outputs_temporal = temporalnet(img)
                 pred_temporal = torch.max(outputs_temporal, 1)[1]
 
-                correct_rgb += sum(rgb_target.cpu().numpy() == pred_spatial.cpu().numpy())
+                # correct_rgb += sum(rgb_target.cpu().numpy() == pred_spatial.cpu().numpy())
                 correct_opt += sum(opt_target.cpu().numpy() == pred_temporal.cpu().numpy())
 
             accuracy['val/spatial'].update_line('val/spatial', epoch, correct_rgb/((i+1)*batch_size))
             accuracy['val/temporal'].update_line('val/temporal', epoch, correct_opt/((i+1)*batch_size))
             print('accuracy of spatial      : {}'.format(100*correct_rgb/((i+1)*batch_size)))
             print('accuracy of temporal     : {}'.format(100*correct_opt/((i+1)*batch_size)))
+            print('本组正确数量 ： ' +  str(correct_opt))
 
         # 파라매터 저장- 保存参数
-        # 意味着训练正常结束之后，会形成一个pretrained文件夹
+        # 每一个epoch之后都会生成pretrained
         if not os.path.exists(pretrained):
             os.makedirs(pretrained, exist_ok=True)
         torch.save(spatialnet.state_dict(), pretrained+params_spatial+'_{0:03d}'.format(epoch))
@@ -224,25 +227,27 @@ def test():
         optical = optical.to(device)
         opt_target = opt_target.to(device)
 
-        outputs_spatial = spatialnet(img)
-        pred_spatial = torch.max(outputs_spatial, 1)[1]
+        #outputs_spatial = spatialnet(img)
+        #pred_spatial = torch.max(outputs_spatial, 1)[1]
 
         outputs_temporal = temporalnet(optical)
         pred_temporal = torch.max(outputs_temporal, 1)[1]
 
 
-        loss_spatial = criterion(outputs_spatial, rgb_target)
+        #loss_spatial = criterion(outputs_spatial, rgb_target)
         loss_temporal = criterion(outputs_temporal, pred_temporal)
-        loss = loss_spatial + loss_temporal
+        # loss = loss_spatial + loss_temporal
+        loss = loss_temporal
 
         running_loss += loss.item()
-        correct_rgb += sum(rgb_target.cpu().numpy() == pred_spatial.cpu().numpy())
+        # correct_rgb += sum(rgb_target.cpu().numpy() == pred_spatial.cpu().numpy())
         correct_opt += sum(opt_target.cpu().numpy() == pred_temporal.cpu().numpy())
 
-        print('--Spatial--')
-        print('prediction   : {0} \ntarget       : {1} \nloss         : {2}'.format(pred_spatial, rgb_target, running_loss/(i+1)))
+        #print('--Spatial--')
+        # print('prediction   : {0} \ntarget       : {1} \nloss         : {2}'.format(pred_spatial, rgb_target, running_loss/(i+1)))
         print('--Temporal--')
         print('prediction   : {0} \ntarget       : {1} \nloss         : {2}'.format(pred_temporal, opt_target, running_loss/(i+1)))
+        print('当前测试进度: ', i, len(loader['test/optical']))
     print('accuracy of spatial      : {}'.format(100*correct_rgb/((i+1)*batch_size)))
     print('accuracy of temporal     : {}'.format(100*correct_opt/((i+1)*batch_size)))
     print('Test Finished')

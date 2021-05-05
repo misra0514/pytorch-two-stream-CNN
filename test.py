@@ -20,7 +20,6 @@ if __name__ == '__main__':
     # frame_save_path = "data"
     # folder_name, video_name= video.split('/')[-2], video.split('/')[-1]
     # capture = cv2.VideoCapture(video)
-    # # TODO : 这里就是read不到东西（ret = false
     # ret, image = capture.read()
     # fname = '/{0}_{1:05d}.jpg'.format(video_name, 1)
     # cv2.imwrite('{}/{}/{}'.format(frame_save_path, folder_name, fname), image)
